@@ -1,13 +1,15 @@
 // src/pages/DashboardPage.tsx - ENHANCED KPIs & CHARTS
-import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement, DoughnutController, BarController, LineController, TimeScale } from 'chart.js'; // Added TimeScale
-import { Doughnut, Bar, Pie, Line } from 'react-chartjs-2'; // Added Pie, Line
-import { Asset, WorkOrder, ToolBooking, WorkOrderStatus, AssetStatus, WorkOrderPriority, WorkOrderType } from '../types';
+import { useMemo } from 'react';
+// Import ChartData type specifically
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement, DoughnutController, BarController, LineController, TimeScale, ChartData } from 'chart.js';
+import { Doughnut, Pie, Line } from 'react-chartjs-2';
+// Import all needed types for data processing and typing the component props
+import type { Asset, WorkOrder, ToolBooking, WorkOrderStatus, AssetStatus, WorkOrderPriority, WorkOrderType } from '../types';
 
 // --- Register Chart.js Components ---
-try { ChartJS.register( CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement, DoughnutController, BarController, LineController, TimeScale ); } // Added TimeScale
+try { ChartJS.register( CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement, DoughnutController, BarController, LineController, TimeScale ); }
 catch (error) { console.error("[DashboardPage] ERROR registering Chart.js components:", error); }
+
 
 // --- Component Props Interface ---
 interface DashboardPageProps {
@@ -49,7 +51,7 @@ const estimatePartsCost = (wo: WorkOrder): number => {
 
 
 function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: DashboardPageProps) {
-    console.log("[DashboardPage] Rendering with data lengths:", { assets: assets?.length, workOrders: workOrders?.length, toolBookings: toolBookings?.length });
+    console.log("[DashboardPage] Rendering with data lengths:", { assets: assets?.length, workOrders: workOrders?.length, toolBookings: toolBookings?.length }); // Corrected typo
 
     // --- Calculate KPIs ---
     const kpis = useMemo(() => {
@@ -59,7 +61,6 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
 
         const todayStartMs = getStartOfToday().getTime();
         const thirtyDaysAgoMs = getStartOfXDaysAgo(30).getTime();
-        const sixtyDaysAgoMs = getStartOfXDaysAgo(60).getTime();
 
         // Work Order KPIs
         const openStatuses: WorkOrderStatus[] = ['Requested', 'Approved', 'Assigned', 'In Progress', 'On Hold'];
@@ -72,7 +73,7 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
         // PM Compliance (PMs Due in the last 30 days)
         const pmsDueLast30d = validWorkOrders.filter(wo => wo?.type === 'Preventive' && wo.dateDue && new Date(wo.dateDue).getTime() >= thirtyDaysAgoMs && new Date(wo.dateDue).getTime() < todayStartMs);
         const completedPmsDueLast30d = pmsDueLast30d.filter(wo => closedStatuses.includes(wo.status));
-        const pmCompliance = pmsDueLast30d.length > 0 ? Math.round((completedPmsDueLast30d.length / pmsDueLast30d.length) * 100) : 100;
+        const pmCompliance = pmsDueLast30d.length > 0 ? Math.round((completedPmsDueLast30d.length / pmsDueLast30d.length) * 100) : 100; // Handles division by zero
 
         // Cost KPIs (Last 30 days completed) - USING PLACEHOLDERS
         const totalCostLast30d = completedLast30d.reduce((sum, wo) => {
@@ -95,8 +96,7 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
 
         // Booking KPIs
         const pendingBookings = validToolBookings.filter(b => b && b.status === 'pending');
-        const approvedBookingsToday = validToolBookings.filter(b => b && b.status === 'approved' && new Date(b.startTime).getTime() >= todayStartMs && new Date(b.startTime).getTime() < todayStartMs + 86400000);
-
+        const approvedBookingsToday = validToolBookings.filter(b => b && b.status === 'approved' && b.startTime && new Date(b.startTime).getTime() >= todayStartMs && new Date(b.startTime).getTime() < todayStartMs + 86400000); // Check b.startTime
 
         return {
             totalAssets: validAssets.length, onlineAssets: validAssets.length - offlineAssets.length, offlineAssets: offlineAssets.length, maintenanceAssets: maintenanceAssets.length, offlineUnplannedAssets: offlineUnplannedAssets.length,
@@ -107,16 +107,62 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
             pendingBookings: pendingBookings.length,
             approvedBookingsToday: approvedBookingsToday.length,
         };
-    }, [assets, workOrders, toolBookings]);
+    }, [assets, workOrders, toolBookings]); // Dependencies
 
     // --- Prepare Chart Data ---
-    // WO Status, Asset Status, Open WO Priority (Keep previous memoized versions)
-    const woStatusData = useMemo(() => { /* ... same as before ... */ }, [workOrders]);
-    const assetStatusData = useMemo(() => { /* ... same as before ... */ }, [assets]);
-    const woPriorityData = useMemo(() => { /* ... same as before ... */ }, [workOrders]);
 
-    // WO Type Distribution (All Time for simplicity, could filter)
-    const woTypeData = useMemo(() => {
+    // Asset Status Distribution
+    // Add explicit return type ChartData for Doughnut
+    const assetStatusData = useMemo<ChartData<'doughnut', number[], AssetStatus>>(() => {
+        const validAssets = Array.isArray(assets) ? assets : [];
+        if (validAssets.length === 0) return { labels: [], datasets: [] };
+        const counts: { [key in AssetStatus]?: number } = {};
+        validAssets.forEach(asset => { if(asset?.status) counts[asset.status] = (counts[asset.status] || 0) + 1; });
+        const labels = Object.keys(counts).sort() as AssetStatus[];
+         return {
+             labels: labels,
+             datasets: [{ label: 'Asset Status', data: labels.map(s => counts[s] || 0),
+                 backgroundColor: [
+                     'rgba(46, 204, 113, 0.7)', // Online - Green
+                     'rgba(230, 126, 34, 0.7)', // Maintenance - Orange
+                     'rgba(241, 196, 15, 0.7)', // Offline - Planned - Yellow
+                     'rgba(231, 76, 60, 0.7)',  // Offline - Unplanned - Red
+                     'rgba(149, 165, 166, 0.7)' // Other/Unknown - Grey
+                 ],
+                 borderColor: ['#2ecc71', '#f39c12', '#f1c40f', '#e74c3c', '#95a5a6'],
+                 borderWidth: 1 }]};
+    }, [assets]); // Dependency
+
+    // Open WOs by Priority
+     // Add explicit return type ChartData for Pie
+     const woPriorityData = useMemo<ChartData<'pie', number[], WorkOrderPriority>>(() => {
+         const validWorkOrders = Array.isArray(workOrders) ? workOrders : [];
+         const openStatuses: WorkOrderStatus[] = ['Requested', 'Approved', 'Assigned', 'In Progress', 'On Hold'];
+         const openWOs = validWorkOrders.filter(wo => wo && openStatuses.includes(wo.status));
+
+         if (openWOs.length === 0) return { labels: [], datasets: [] };
+
+         const counts: { [key in WorkOrderPriority]?: number } = {};
+         openWOs.forEach(wo => { if(wo?.priority) counts[wo.priority] = (counts[wo.priority] || 0) + 1; });
+         const labels = Object.keys(counts).sort() as WorkOrderPriority[];
+
+          return {
+              labels: labels,
+              datasets: [{ label: 'Open WO Priority', data: labels.map(p => counts[p] || 0),
+                  backgroundColor: [
+                     'rgba(231, 76, 60, 0.7)',  // Critical - Red
+                     'rgba(241, 196, 15, 0.7)', // High - Yellow
+                     'rgba(52, 152, 219, 0.7)', // Medium - Blue
+                     'rgba(149, 165, 166, 0.7)' // Low - Grey
+                  ],
+                 borderColor: ['#e74c3c', '#f1c40f', '#3498db', '#95a5a6'],
+                 borderWidth: 1 }]};
+     }, [workOrders]); // Dependency
+
+
+    // WO Type Distribution (All Time)
+    // Add explicit return type ChartData for Pie
+    const woTypeData = useMemo<ChartData<'pie', number[], WorkOrderType>>(() => {
         if (!Array.isArray(workOrders) || workOrders.length === 0) return { labels: [], datasets: [] };
         const counts: { [key in WorkOrderType]?: number } = {};
         workOrders.forEach(wo => { if(wo?.type) counts[wo.type] = (counts[wo.type] || 0) + 1; });
@@ -124,16 +170,25 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
         return {
             labels: labels,
             datasets: [{ label: 'WO Types', data: labels.map(t => counts[t] || 0),
-                backgroundColor: [ /* Provide distinct colors - more needed maybe */
+                backgroundColor: [
                     'rgba(46, 204, 113, 0.7)', 'rgba(52, 152, 219, 0.7)', 'rgba(155, 89, 182, 0.7)',
                     'rgba(241, 196, 15, 0.7)', 'rgba(230, 126, 34, 0.7)', 'rgba(149, 165, 166, 0.7)',
                     'rgba(26, 188, 156, 0.7)', 'rgba(231, 76, 60, 0.7)'
-                ], borderColor: [ /* solid colors */ ], borderWidth: 1 }]};
-    }, [workOrders]);
+                ],
+                 borderColor: [
+                    '#2ecc71', '#3498db', '#9b59b6',
+                    '#f1c40f', '#e67e22', '#95a5a6',
+                    '#1abc9c', '#e74c3c'
+                 ],
+                 borderWidth: 1 }]};
+    }, [workOrders]); // Dependency
 
     // WO Created vs Completed Trend (Last 60 days by week)
-    const woTrendData = useMemo(() => {
-         if (!Array.isArray(workOrders)) return { labels: [], datasets: [] };
+    // Add explicit return type ChartData for Line
+    const woTrendData = useMemo<ChartData<'line', number[], string>>(() => {
+         const validWorkOrders = Array.isArray(workOrders) ? workOrders : [];
+         if (validWorkOrders.length === 0) return { labels: [], datasets: [] };
+
          const labels: string[] = [];
          const createdCounts: number[] = [];
          const completedCounts: number[] = [];
@@ -155,10 +210,10 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
              labels.push(`Wk Starting ${weekStartDate.toLocaleDateString('en-CA')}`); // YYYY-MM-DD format
 
              createdCounts.push(
-                 workOrders.filter(wo => wo?.dateReported && new Date(wo.dateReported).getTime() >= weekStartMs && new Date(wo.dateReported).getTime() <= weekEndMs).length
+                 validWorkOrders.filter(wo => wo?.dateReported && new Date(wo.dateReported).getTime() >= weekStartMs && new Date(wo.dateReported).getTime() <= weekEndMs).length
              );
              completedCounts.push(
-                 workOrders.filter(wo => wo && (wo.status === 'Completed' || wo.status === 'Closed') && wo.dateActualCompletion && new Date(wo.dateActualCompletion).getTime() >= weekStartMs && new Date(wo.dateActualCompletion).getTime() <= weekEndMs).length
+                 validWorkOrders.filter(wo => wo && (wo.status === 'Completed' || wo.status === 'Closed') && wo.dateActualCompletion && new Date(wo.dateActualCompletion).getTime() >= weekStartMs && new Date(wo.dateActualCompletion).getTime() <= weekEndMs).length
              );
          }
 
@@ -169,7 +224,7 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
                  { label: 'WOs Completed', data: completedCounts, borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.5)', tension: 0.1 }
              ]
          };
-    }, [workOrders]);
+    }, [workOrders]); // Dependency
 
 
     const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, };
@@ -201,7 +256,8 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
 
              <section className="dashboard-charts-grid">
                  {/* WO Created vs Completed Trend */}
-                 {woTrendData?.labels?.length > 0 ? (
+                 {/* Check if woTrendData and labels are defined and labels has elements */}
+                 {woTrendData && Array.isArray(woTrendData.labels) && woTrendData.labels.length > 0 ? (
                      <div className="chart-container">
                          <h3>WO Trend (Created vs Completed - Weekly)</h3>
                          <div style={{ position: 'relative', height: '350px', width: '100%' }}>
@@ -211,7 +267,8 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
                  ) : <div className="chart-container"><p>Not enough data for WO Trend chart.</p></div> }
 
                  {/* Open WOs by Priority */}
-                  {woPriorityData?.labels?.length > 0 ? (
+                 {/* Check if woPriorityData and labels are defined and labels has elements */}
+                  {woPriorityData && Array.isArray(woPriorityData.labels) && woPriorityData.labels.length > 0 ? (
                      <div className="chart-container">
                          <h3>Open Work Orders by Priority</h3>
                          <div style={{ position: 'relative', height: '350px', width: '100%' }}>
@@ -221,7 +278,8 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
                  ) : <div className="chart-container"><p>No Open WO Priority data.</p></div> }
 
                  {/* Asset Status Chart */}
-                  {assetStatusData?.labels?.length > 0 ? (
+                  {/* Check if assetStatusData and labels are defined and labels has elements */}
+                  {assetStatusData && Array.isArray(assetStatusData.labels) && assetStatusData.labels.length > 0 ? (
                       <div className="chart-container">
                          <h3>Asset Status</h3>
                           <div style={{ position: 'relative', height: '350px', width: '100%' }}>
@@ -231,7 +289,8 @@ function DashboardPage({ assets = [], workOrders = [], toolBookings = [] }: Dash
                  ) : <div className="chart-container"><p>No Asset Status data.</p></div> }
 
                  {/* WO Type Distribution */}
-                 {woTypeData?.labels?.length > 0 ? (
+                 {/* Check if woTypeData and labels are defined and labels has elements */}
+                 {woTypeData && Array.isArray(woTypeData.labels) && woTypeData.labels.length > 0 ? (
                      <div className="chart-container">
                          <h3>Work Order Type Distribution</h3>
                          <div style={{ position: 'relative', height: '350px', width: '100%' }}>

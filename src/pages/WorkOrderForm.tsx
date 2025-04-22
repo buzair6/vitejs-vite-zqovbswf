@@ -1,7 +1,8 @@
 // src/pages/WorkOrderForm.tsx
-import React, { useState, FormEvent, useMemo } from 'react';
+import { useState, FormEvent } from 'react'; // Removed React, useMemo as they were not used
 import { useNavigate } from 'react-router-dom';
-import { WorkOrder, Asset, WorkOrderStatus, WorkOrderPriority, WorkOrderType, FailureCode } from '../types';
+// Import all needed types for data processing and typing the component props
+import type { WorkOrder, Asset, WorkOrderStatus, WorkOrderPriority, WorkOrderType, FailureCode } from '../types';
 
 interface WorkOrderFormProps {
     addWorkOrder: (workOrderData: Omit<WorkOrder, 'id'>) => void;
@@ -26,15 +27,17 @@ function WorkOrderForm({ addWorkOrder, assets /*, workOrderToEdit */ }: WorkOrde
   const [status, setStatus] = useState<WorkOrderStatus>('Requested');
   const [priority, setPriority] = useState<WorkOrderPriority>('Medium');
   // Section 2
-  const [assetId, setAssetId] = useState(assets.length > 0 ? assets[0].id : '');
+  // Ensure assets exist before accessing index [0]
+  const [assetId, setAssetId] = useState(Array.isArray(assets) && assets.length > 0 && assets[0]?.id ? assets[0].id : '');
   const [locationNotes, setLocationNotes] = useState('');
   // Section 3
   const [dateReported, setDateReported] = useState(new Date().toISOString().substring(0, 10)); // Default to today's date YYYY-MM-DD
   const [reportedBy, setReportedBy] = useState('');
   const [dateDue, setDateDue] = useState('');
-  const [dateScheduledStart, setDateScheduledStart] = useState('');
-  const [dateActualStart, setDateActualStart] = useState('');
-  const [dateActualCompletion, setDateActualCompletion] = useState('');
+  // Removed dateScheduledStart, dateActualStart, dateActualCompletion as they were unused state variables
+  // const [dateScheduledStart, setDateScheduledStart] = useState('');
+  // const [dateActualStart, setDateActualStart] = useState('');
+  // const [dateActualCompletion, setDateActualCompletion] = useState('');
   // Section 4
   const [assignedTo, setAssignedTo] = useState('');
   const [supervisor, setSupervisor] = useState('');
@@ -66,6 +69,7 @@ function WorkOrderForm({ addWorkOrder, assets /*, workOrderToEdit */ }: WorkOrde
   // --- Handle Submit ---
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+     // Basic validation
      if (!title || !assetId || !problemDescription || !reportedBy || !dateReported) {
        alert('Please fill in required fields: Title, Asset, Problem Description, Reported By, Date Reported.');
        return;
@@ -75,14 +79,24 @@ function WorkOrderForm({ addWorkOrder, assets /*, workOrderToEdit */ }: WorkOrde
     const finalEstimatedHours = estimatedHours === '' ? undefined : Number(estimatedHours);
     const finalExternalCosts = externalCosts === '' ? undefined : Number(externalCosts);
 
-    addWorkOrder({
+    // Construct the WO object excluding the 'id' property
+    const newWorkOrderData: Omit<WorkOrder, 'id'> = {
         title, type, status, priority, assetId, locationNotes,
-        dateReported, reportedBy, dateDue, dateScheduledStart, dateActualStart, dateActualCompletion,
+        dateReported, reportedBy, dateDue,
+        // Explicitly include these if they are part of the type but were unused state:
+        dateScheduledStart: undefined, // Or some default/empty value if appropriate
+        dateActualStart: undefined,
+        dateActualCompletion: undefined,
+
         assignedTo, supervisor, problemDescription, scopeOfWork, linkedProcedureInfo, safetyInstructions,
         estimatedHours: finalEstimatedHours, actualLaborLog, plannedParts, partsConsumed, toolsRequired, externalCosts: finalExternalCosts,
         completionNotes, failureProblemCode, failureCauseCode, failureRemedyCode, meterReadingsNotes, inspectionResults, downtimeLogged,
         followUpRequired, signatureRequired, attachmentNotes
-    });
+         // Include any other fields defined in the WorkOrder type if missing here
+    };
+
+
+    addWorkOrder(newWorkOrderData);
     navigate('/workorders'); // Redirect after adding
   };
 
@@ -124,11 +138,16 @@ function WorkOrderForm({ addWorkOrder, assets /*, workOrderToEdit */ }: WorkOrde
             <h3>Asset & Location</h3>
             <div className="form-group">
               <label htmlFor="assetId">Asset *</label>
-              <select id="assetId" value={assetId} onChange={(e) => setAssetId(e.target.value)} required disabled={assets.length === 0} >
+              <select id="assetId" value={assetId} onChange={(e) => setAssetId(e.target.value)} required disabled={!Array.isArray(assets) || assets.length === 0} >
                 <option value="" disabled={assetId !== ''}>-- Select an Asset --</option>
-                {assets.map(asset => ( <option key={asset.id} value={asset.id}> {asset.name} ({asset.id}) </option> ))}
-                {assets.length === 0 && <option disabled>No assets available</option>}
+                {Array.isArray(assets) && assets.map(asset => (
+                     // Add check for valid asset.id
+                    asset?.id ? <option key={asset.id} value={asset.id}> {asset.name ?? 'Unnamed Asset'} ({asset.id}) </option> : null
+                ))}
+                 {/* Show message if no assets are available */}
+                {(!Array.isArray(assets) || assets.length === 0) && <option value="" disabled>No assets available</option>}
               </select>
+               {(!Array.isArray(assets) || assets.length === 0) && <p style={{color:'red', fontSize:'0.9em'}}>Please create an asset first.</p>}
             </div>
              <div className="form-group">
               <label htmlFor="locationNotes">Specific Location Notes</label>
@@ -151,7 +170,8 @@ function WorkOrderForm({ addWorkOrder, assets /*, workOrderToEdit */ }: WorkOrde
               <label htmlFor="dateDue">Due Date</label>
               <input type="date" id="dateDue" value={dateDue} onChange={(e) => setDateDue(e.target.value)} />
             </div>
-            {/* Add other date inputs similarly if needed: dateScheduledStart, dateActualStart, dateActualCompletion */}
+            {/* Input fields for dateScheduledStart, dateActualStart, dateActualCompletion would go here if you want to use them */}
+            {/* For now, they are undefined when creating */}
         </div>
 
         {/* --- Section 4: Assignment --- */}
@@ -278,9 +298,10 @@ function WorkOrderForm({ addWorkOrder, assets /*, workOrderToEdit */ }: WorkOrde
 
         {/* --- Form Actions --- */}
         <div className="form-actions">
-          <button type="submit">Save Work Order</button>
+          <button type="submit" disabled={!Array.isArray(assets) || assets.length === 0}>Save Work Order</button>
           <button type="button" onClick={() => navigate('/workorders')}>Cancel</button>
         </div>
+         {/* Guidance if no assets exist */}
       </form>
     </div>
   );
