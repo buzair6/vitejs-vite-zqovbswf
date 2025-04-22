@@ -1,7 +1,7 @@
 // src/pages/ToolBookingsViewerPage.tsx
-import React, { useMemo, useState } from 'react'; // Added useState
+import { useMemo, useState } from 'react'; // Removed React as it's not needed explicitly
 import { Link } from 'react-router-dom';
-import { ToolBooking, Tool, BookingStatus } from '../types';
+import type { ToolBooking, Tool, BookingStatus } from '../types'; // Added type import keyword
 
 interface ToolBookingsViewerPageProps {
     bookings: ToolBooking[];
@@ -9,14 +9,55 @@ interface ToolBookingsViewerPageProps {
     updateBookingStatus: (bookingId: string, newStatus: BookingStatus, approverName?: string) => void;
 }
 
-// Date & Status Helpers (Keep from previous version)
-const formatBookingDateTime = (isoString: string): string => { /* ... */ };
-const getBookingStatusClassName = (status: BookingStatus): string => { /* ... */ };
-// Add date range helpers (copy from WorkOrdersPage if needed, or implement simplified logic here)
-const getStartOfDay = (date: Date): Date => { /* ... */ };
-const getEndOfDay = (date: Date): Date => { /* ... */ };
-const formatDateToInput = (date: Date): string => { /* ... */ };
-// ... (getWeekRange, getMonthRange if using quick buttons)
+// --- Date & Status Helpers (Implemented) ---
+
+// TS2355 Fix: Removed the commented-out placeholder declarations here.
+// The actual implementations are below.
+// const formatBookingDateTime = (isoString: string): string => { /* ... */ };
+// const getBookingStatusClassName = (status: BookingStatus): string => { /* ... */ };
+// const getStartOfDay = (date: Date): Date => { /* ... */ };
+// const getEndOfDay = (date: Date): Date => { /* ... */ };
+// const formatDateToInput = (date: Date): string => { /* ... */ };
+
+
+// Formats an ISO date string to a readable local date/time string
+const formatBookingDateTime = (isoString: string): string => {
+    if (!isoString) return 'N/A';
+    try {
+        const date = new Date(isoString);
+         if (isNaN(date.getTime())) return isoString; // Return original if invalid date
+        // Format to local date and time
+        return date.toLocaleString(undefined, {
+             year: 'numeric',
+             month: 'short',
+             day: 'numeric',
+             hour: '2-digit',
+             minute: '2-digit'
+         });
+    } catch (e) {
+        console.error("Error formatting date time:", isoString, e);
+        return isoString; // Return original string on error
+    }
+};
+
+// Gets a CSS class name based on booking status
+const getBookingStatusClassName = (status: BookingStatus): string => {
+    const base = 'booking-status-badge'; // A base class for styling
+    switch (status) {
+        case 'pending': return `${base} pending`;
+        case 'approved': return `${base} approved`;
+        case 'rejected': return `${base} rejected`;
+        default: return base; // Fallback for unknown status
+    }
+};
+
+// Formats a Date object into 'YYYY-MM-DD' string for date input (Not actually used in this file's logic, but kept if needed elsewhere)
+const formatDateToInput = (date: Date): string => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) return ''; // Handle invalid date
+    return date.toISOString().split('T')[0];
+};
+
+// Removed getStartOfDay, getEndOfDay as they were not used in this file
 
 
 function ToolBookingsViewerPage({ bookings, tools, updateBookingStatus }: ToolBookingsViewerPageProps) {
@@ -26,41 +67,61 @@ function ToolBookingsViewerPage({ bookings, tools, updateBookingStatus }: ToolBo
 
      const toolMap = useMemo(() => {
         const map = new Map<string, Tool>();
+        // Ensure tools is an array before iterating
         if (Array.isArray(tools)) {
-            tools.forEach(tool => map.set(tool.id, tool));
+            tools.forEach(tool => {
+                if (tool?.id) { // Ensure tool and tool.id are valid
+                     map.set(tool.id, tool);
+                }
+            });
         }
         return map;
     }, [tools]);
 
     // Filter and Sort Bookings
     const filteredAndSortedBookings = useMemo(() => {
+        // Ensure bookings is an array before spreading
         let filtered = Array.isArray(bookings) ? [...bookings] : [];
 
         // 1. Filter by Tool
         if (selectedToolId !== 'all') {
-            filtered = filtered.filter(b => b.toolId === selectedToolId);
+            filtered = filtered.filter(b => b?.toolId === selectedToolId); // Add check for valid booking
         }
 
         // 2. Filter by Date Range (using booking START time for filtering)
+        // Validate date inputs before creating Date objects
         const filterStartDate = startDateFilter ? new Date(`${startDateFilter}T00:00:00`) : null;
         const filterEndDate = endDateFilter ? new Date(`${endDateFilter}T23:59:59.999`) : null;
 
         if (filterStartDate || filterEndDate) {
              filtered = filtered.filter(booking => {
-                if (!booking || !booking.startTime) return false;
+                if (!booking || !booking.startTime) return false; // Must have a booking and startTime
                 try {
-                    const bookingStart = new Date(booking.startTime);
-                    if (isNaN(bookingStart.getTime())) return false;
+                    // Parse the date. Using UTC midnight for YYYY-MM-DD strings helps avoid timezone issues.
+                    const bookingStart = new Date(booking.startTime.length === 10 ? `${booking.startTime}T00:00:00.000Z` : booking.startTime);
+
+                    if (isNaN(bookingStart.getTime())) {
+                        console.warn("Invalid date format for booking start time:", booking.startTime);
+                        return false; // Invalid booking start time string
+                    }
 
                     const isAfterStart = filterStartDate ? bookingStart >= filterStartDate : true;
                     const isBeforeEnd = filterEndDate ? bookingStart <= filterEndDate : true; // Check if START is before filter END
                     return isAfterStart && isBeforeEnd;
-                } catch { return false; }
+                } catch (e) {
+                     console.error("Error processing booking start date for filtering:", booking.startTime, e);
+                     return false; // Handle unexpected errors during date processing
+                }
             });
         }
 
         // 3. Sort by Start Time
-        return filtered.sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        // Added checks for valid booking objects before accessing startTime
+        return filtered.sort((a,b) => {
+             const timeA = a?.startTime ? new Date(a.startTime).getTime() : 0;
+             const timeB = b?.startTime ? new Date(b.startTime).getTime() : 0;
+             return timeA - timeB;
+        });
 
     }, [bookings, selectedToolId, startDateFilter, endDateFilter]); // Add dependencies
 
@@ -72,7 +133,9 @@ function ToolBookingsViewerPage({ bookings, tools, updateBookingStatus }: ToolBo
         setEndDateFilter('');
     }
 
-    const selectedToolName = selectedToolId === 'all' ? 'All Tools' : toolMap.get(selectedToolId)?.name ?? 'Unknown Tool';
+     // Ensure tools is an array before finding a tool
+    const selectedToolName = selectedToolId === 'all' ? 'All Tools' : (Array.isArray(tools) ? toolMap.get(selectedToolId)?.name : undefined) ?? 'Unknown Tool';
+
 
     return (
         <div className="tool-bookings-page">
@@ -89,8 +152,10 @@ function ToolBookingsViewerPage({ bookings, tools, updateBookingStatus }: ToolBo
                         aria-label="Filter by Tool"
                      >
                         <option value="all">All Tools</option>
-                        {tools.map(tool => (
-                            <option key={tool.id} value={tool.id}>{tool.name}</option>
+                         {/* Ensure tools is an array before mapping */}
+                        {Array.isArray(tools) && tools.map(tool => (
+                             // Add check for valid tool.id and tool.name before rendering option
+                             tool?.id && tool?.name ? <option key={tool.id} value={tool.id}>{tool.name}</option> : null
                         ))}
                     </select>
                     {/* Date Filter */}
@@ -102,7 +167,7 @@ function ToolBookingsViewerPage({ bookings, tools, updateBookingStatus }: ToolBo
                      </div>
                     {/* Clear Button */}
                     <button type="button" onClick={handleClearFilters} className="quick-date-button">Clear Filters</button>
-                     {/* Only show 'Request Booking' if a specific tool is selected */}
+                     {/* Only show 'Request Booking' if a specific tool is selected and found */}
                     {selectedToolId !== 'all' && toolMap.has(selectedToolId) && (
                          <Link to={`/tools/book/${selectedToolId}`} className="button-link button-small">Book This Tool</Link>
                     )}
@@ -111,24 +176,34 @@ function ToolBookingsViewerPage({ bookings, tools, updateBookingStatus }: ToolBo
             </div>
 
             <ul className="tool-bookings-list">
-                {filteredAndSortedBookings.length === 0 ? (
+                 {/* Check if filteredAndSortedBookings is an array and has length */}
+                {!Array.isArray(filteredAndSortedBookings) || filteredAndSortedBookings.length === 0 ? (
                      <li className="no-data" style={{gridColumn: '1 / -1'}}>No bookings match filters.</li>
                 ) : (
                     filteredAndSortedBookings.map(booking => {
+                        // Add check for valid booking object
+                        if (!booking?.id) return null;
+
                         const toolName = toolMap.get(booking.toolId)?.name ?? 'Unknown Tool';
-                        const statusClass = `status-${booking.status}`;
+                        // Ensure status is valid before passing to getBookingStatusClassName
+                        const status: BookingStatus = (booking.status as BookingStatus) || 'pending'; // Default to 'pending' if status is missing/invalid
+                        const statusClass = getBookingStatusClassName(status);
+
                         return (
                             <li key={booking.id} className={statusClass}>
                                 <div className="booking-info">
                                     <strong>{toolName}</strong>
                                     <span>ID: {booking.id}</span>
-                                    <span>Req By: {booking.requestedBy}</span>
-                                    <span className="booking-dates">From: {formatBookingDateTime(booking.startTime)}</span>
-                                     <span className="booking-dates">To: {formatBookingDateTime(booking.endTime)}</span>
+                                    <span>Req By: {booking.requestedBy ?? 'N/A'}</span> {/* Use nullish coalescing */}
+                                    {/* Use nullish coalescing */}
+                                    <span className="booking-dates">From: {formatBookingDateTime(booking.startTime ?? '')}</span>
+                                    {/* Use nullish coalescing */}
+                                     <span className="booking-dates">To: {formatBookingDateTime(booking.endTime ?? '')}</span>
                                     {booking.notes && <span>Notes: {booking.notes}</span>}
-                                    <div> <span className={getBookingStatusClassName(booking.status)}>{booking.status}</span> {booking.status === 'approved' && booking.approvedBy && <span className="approver-info">by {booking.approvedBy}</span>} {booking.status === 'rejected' && <span className="approver-info">(Rejected)</span>} </div>
+                                    <div> <span className={getBookingStatusClassName(status)}>{status}</span> {status === 'approved' && booking.approvedBy && <span className="approver-info">by {booking.approvedBy}</span>} {status === 'rejected' && <span className="approver-info">(Rejected)</span>} </div>
                                 </div>
-                                {booking.status === 'pending' && (
+                                {/* Check status before rendering action buttons */}
+                                {status === 'pending' && (
                                     <div className="booking-actions">
                                         <button onClick={() => handleApprove(booking.id)} className="button-success button-small">Approve</button>
                                         <button onClick={() => handleReject(booking.id)} className="button-danger button-small">Reject</button>
