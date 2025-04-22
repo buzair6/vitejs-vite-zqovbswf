@@ -5,5 +5,5 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   // ... other config
-  base: './', // Add this line for relative paths
+  base: "/vitejs-vite-zqovbswf",
 });
