@@ -1,6 +1,7 @@
 // src/App.tsx - LOCALSTORAGE PERSISTENCE WITH RICH DATA & CORRECT PROPS
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react'; // Removed React, as it's often not needed explicitly with modern JSX runtimes
+import { BrowserRouter as Router, Routes, Route, Link, Outlet } from 'react-router-dom'; // Removed useLocation
+
 // Page Imports
 import HomePage from './pages/HomePage';
 import AssetsPage from './pages/AssetsPage';
@@ -18,10 +19,9 @@ import ToolBookingsViewerPage from './pages/ToolBookingsViewerPage';
 import DashboardPage from './pages/DashboardPage';
 import AIInteractionPage from './pages/AIInteractionPage';
 import NotFoundPage from './pages/NotFoundPage';
-// Type Imports
+// Type Imports - Removed types declared but never read in THIS file
 import {
-    Asset, WorkOrder, AssetStatus, MeterReading, WorkOrderType, WorkOrderStatus,
-    WorkOrderPriority, FailureCode, ChatGroup, ChatMessage, Tool, ToolBooking, BookingStatus
+    Asset, WorkOrder, MeterReading, ChatGroup, ChatMessage, Tool, ToolBooking, BookingStatus
 } from './types'; // Verify path
 
 // --- LocalStorage Keys ---
@@ -53,6 +53,7 @@ const defaultInitialAssets: Asset[] = [
   { id: 'ASSET-012', name: 'Extruder EX-Alpha', location: 'Production Line 3', type: 'Process Equipment', status: 'Online' },
 ];
 
+// ... Keep your defaultInitialWorkOrders, defaultInitialMeterReadings, etc. ...
 const defaultInitialWorkOrders: WorkOrder[] = [ // Rich data set
   { id: 'WO-1001', title: 'Inspect Pump Alpha', type: 'Preventive', status: 'Assigned', priority: 'Medium', assetId: 'ASSET-001', dateReported: getDateTimeStr(-12, 9), reportedBy: 'System Scheduler', problemDescription: 'Routine monthly vibration analysis required.', followUpRequired: false, signatureRequired: true, locationNotes: 'Check panel access key: #123', dateDue: getDateStr(5), dateScheduledStart: getDateTimeStr(4, 8), assignedTo: 'Tech Team A', supervisor: 'Supervisor Jane Doe', scopeOfWork: '1. Vib check.\n2. Lube levels.\n3. Seal inspection.', linkedProcedureInfo: 'SOP-VIB-002 Rev 3', safetyInstructions: 'Standard PPE.', estimatedHours: 2, toolsRequired: 'Vibration Analyzer X1, Grease Gun', failureProblemCode: 'NA', failureCauseCode: 'NA', failureRemedyCode: 'NA', attachmentNotes: 'PM Checklist attached.' },
   { id: 'WO-1002', title: 'Replace Belt B1 Rollers', type: 'Corrective', status: 'In Progress', priority: 'High', assetId: 'ASSET-002', dateReported: getDateTimeStr(-10, 11.5), reportedBy: 'Operator John Smith', problemDescription: 'Rollers R3/R4 grinding noise. High vibration.', followUpRequired: false, signatureRequired: false, dateDue: getDateStr(2), dateScheduledStart: getDateTimeStr(-1, 7), dateActualStart: getDateTimeStr(-1, 8.08), assignedTo: 'Alice Smith', supervisor: 'Supervisor Jane Doe', scopeOfWork: '1. LOTO B1.\n2. Replace R3 & R4.\n3. Test.', linkedProcedureInfo: 'Proc-RollerReplace-CVB', safetyInstructions: 'LOTO-005. Lifting assistance.', estimatedHours: 4, actualLaborLog: 'Alice S: 3 hrs (bearings seized).', plannedParts: 'Rollers (R-556)x2, Bolts (B-012)x8', partsConsumed: 'Rollers (R-556)x2 ($180), Bolts (B-012)x8 ($10)', toolsRequired: 'Bearing Puller, Torque Wrench', failureProblemCode: 'Mechanical', failureCauseCode: 'Wear', inspectionResults: 'Adjacent OK.', downtimeLogged: 'Started '+getDateStr(-1)+' 08:00 - Ongoing', attachmentNotes: 'Photo attached. Permit #12345.' },
@@ -171,6 +172,7 @@ function App() {
        return newBooking;
    };
   const updateBookingStatus = (bookingId: string, newStatus: BookingStatus, approverName: string = 'Admin') => { setToolBookings(p => p.map(b => b.id === bookingId ? { ...b, status: newStatus, approvedBy: newStatus === 'approved' ? approverName : undefined } : b )); };
+
 
   // --- Routing ---
   console.log("[App] Setting up Routes...");

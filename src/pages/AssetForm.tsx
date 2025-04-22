@@ -1,9 +1,13 @@
-import React, { useState, FormEvent } from 'react'; // Import FormEvent
+// src/pages/AssetForm.tsx
+import { useState, FormEvent } from 'react'; // Removed React
 import { useNavigate } from 'react-router-dom';
-import { Asset } from '../types'; // Import Asset type if needed for props validation
+// Import Asset type using the 'type' keyword as it's only used in type annotations
+import type { Asset } from '../types';
 
 interface AssetFormProps {
-    addAsset: (assetData: Omit<Asset, 'id'>) => void;
+    // CORRECTED TYPE: The addAsset function in App.tsx expects Omit<Asset, 'id' | 'status'>
+    // because it adds the 'status' itself. This type definition now matches.
+    addAsset: (assetData: Omit<Asset, 'id' | 'status'>) => void;
     // Optional: Add assetToEdit?: Asset for editing functionality later
 }
 
@@ -19,12 +23,14 @@ function AssetForm({ addAsset }: AssetFormProps) {
       alert('Please fill in all fields.');
       return;
     }
+    // Pass ONLY the properties expected by addAsset (name, location, type)
+    // The 'status' property is intentionally omitted here as handled by App.tsx
     addAsset({ name, location, type });
     navigate('/assets'); // Redirect to asset list after adding
   };
 
   return (
-    <div>
+    <div className="form-container"> {/* Added form-container class */}
       <h2>Create New Asset</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -57,8 +63,10 @@ function AssetForm({ addAsset }: AssetFormProps) {
             required
           />
         </div>
-        <button type="submit">Create Asset</button>
-         <button type="button" onClick={() => navigate('/assets')}>Cancel</button>
+        <div className="form-actions"> {/* Added form-actions class */}
+            <button type="submit">Create Asset</button>
+             <button type="button" onClick={() => navigate('/assets')}>Cancel</button>
+        </div>
       </form>
     </div>
   );

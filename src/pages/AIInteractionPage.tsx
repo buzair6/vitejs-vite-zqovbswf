@@ -1,7 +1,7 @@
 // src/pages/AIInteractionPage.tsx - FULL CONTEXT, LESS RESTRICTION
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Content, ChatSession } from "@google/generative-ai";
-import type { Asset, WorkOrder, Tool, ToolBooking, WorkOrderStatus, MeterReading /* Import all needed types */ } from '../types'; // Verify path
+import { useState, useRef, useEffect } from 'react'; // Removed useMemo as it was not used
+import { GoogleGenerativeAI, Content, ChatSession, SafetySetting } from "@google/generative-ai"; // Removed HarmCategory, HarmBlockThreshold as they were not used
+import type { Asset, WorkOrder, Tool, ToolBooking, MeterReading /* Import all needed types */ } from '../types'; // Removed WorkOrderStatus as it was not used
 
 // --- Environment Variable & Model ---
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -61,7 +61,10 @@ const AIInteractionPage: React.FC<AIInteractionPageProps> = ({
                 const genAI = new GoogleGenerativeAI(API_KEY);
                 const model = genAI.getGenerativeModel({ model: MODEL_NAME });
                 const generationConfig = { temperature: 0.7, maxOutputTokens: 2048 }; // Allow longer responses
-                const safetySettings = [ /* ... Standard safety settings ... */ ];
+
+                // Added explicit type annotation for safetySettings
+                // Assuming default settings if none specified, hence empty array
+                const safetySettings: SafetySetting[] = [];
 
                 // --- More Open System Instruction ---
                 // Encourage analysis but acknowledge data limitations
@@ -138,6 +141,10 @@ Aim for informative and natural responses based *only* on the data given in the 
         setIsLoading(true);
         setError(null);
         const userContent: Content = { role: "user", parts: [{ text: userText }] };
+        // Note: Adding the CONTEXT + USER QUERY as a *single* new message part to the history might clutter the UI.
+        // A better approach for display is to just add the original userText to the history,
+        // but send the combined CONTEXT + USER QUERY to the AI.
+        // Let's keep the original userText in history for display purposes.
         setHistory(prevHistory => [...prevHistory, userContent]);
         setPrompt('');
 
@@ -145,20 +152,28 @@ Aim for informative and natural responses based *only* on the data given in the 
             // Prepare the FULL context every time
             const dataContext = prepareFullDataContext();
 
-            // Prepend context to the user query for this turn
+            // Prepend context to the user query for this turn before sending to AI
+            // The actual message sent to the AI is the combined text.
             const messageToSend = `CONTEXT:\n${dataContext}\n\nUSER QUERY:\n${userText}`;
 
             console.log("[AIInteractionPage] Sending message to chat session (Length:", messageToSend.length, ")");
 
             // Send the message using the chat session object
+            // The history is handled by the chat session internally based on what *was sent*.
+            // We manage our local 'history' state for display only.
             const result = await chatSession.sendMessage(messageToSend);
 
             const response = result.response;
+            // Safely access the text property of the response
             const responseText = response?.text() ?? '';
 
             if (!responseText && response?.promptFeedback?.blockReason) { setError(`Response blocked: ${response.promptFeedback.blockReason}`); console.warn("Response blocked", response.promptFeedback);}
             else if (!responseText) { setError("AI returned an empty response."); console.warn("Empty AI response"); }
-            else { const modelContent: Content = { role: "model", parts: [{ text: responseText }] }; setHistory(prev => [...prev, modelContent]); }
+            else {
+                // Add the AI's response to our local history for display
+                const modelContent: Content = { role: "model", parts: [{ text: responseText }] };
+                setHistory(prev => [...prev, modelContent]);
+            }
 
         } catch (err: any) { setError(`Error: ${err.message}`); console.error("Gemini API Error", err);}
         finally { setIsLoading(false); }
@@ -181,14 +196,42 @@ Aim for informative and natural responses based *only* on the data given in the 
             {!API_KEY && ( <p className="error-message"> ERROR: API Key missing. AI features disabled. </p> )}
 
             <div className="conversation-history">
-                {/* Filter initial system instruction preamble for cleaner display */}
-                {history.filter(msg => !(msg.role === 'user' && msg.parts[0].text.startsWith('You are an AI assistant')) && !(msg.role === 'model' && msg.parts[0].text.startsWith('Okay, I\'m ready')) ).map((msg, index) => (
-                    msg.parts.map((part, partIndex) => (
-                        <div key={`${index}-${partIndex}`} className={`message-bubble ${msg.role === 'user' ? 'user-message' : 'ai-message'}`}>
-                            {part.text.split('\n').map((line, i) => ( <React.Fragment key={i}>{line}<br/></React.Fragment> ))}
-                        </div>
+                 {/* Safely render history messages, filtering out the initial preamble */}
+                 {history
+                    // Filter out the specific initial messages based on role and part content (safer with checks)
+                    .filter((msg, index) => {
+                        // Check if msg.parts is an array and has elements before accessing parts[0]
+                        if (!Array.isArray(msg.parts) || msg.parts.length === 0) return true; // Keep if no parts or not array
+                        const firstPart = msg.parts[0];
+                        // Check if the first part exists and has text before checking startsWith
+                        if (msg.role === 'user' && typeof firstPart?.text === 'string' && firstPart.text.startsWith('You are a helpful AI assistant')) return false;
+                        if (msg.role === 'model' && typeof firstPart?.text === 'string' && firstPart.text.startsWith('Okay, I\'m ready.')) return false;
+                        return true; // Keep other messages
+                    })
+                    // Map the remaining history items
+                    .map((msg, index) => (
+                         // Each history item is a bubble container
+                         <div key={`msg-${index}`} className={`message-bubble ${msg.role === 'user' ? 'user-message' : 'ai-message'}`}>
+                             {/* Map over the parts within this message, safely */}
+                             {/* Check if msg.parts is an array before mapping */}
+                             {Array.isArray(msg.parts) && msg.parts.map((part, partIndex) => (
+                                 // Check if part exists and has text property before using it
+                                 typeof part?.text === 'string' ? (
+                                     // Use React.Fragment and split to handle line breaks correctly without extra divs
+                                     <React.Fragment key={`part-${index}-${partIndex}`}>
+                                          {part.text.split('\n').map((line, lineIndex, arr) => (
+                                             <span key={`line-${index}-${partIndex}-${lineIndex}`}>
+                                                 {line}
+                                                 {/* Add <br/> after each line except the last one */}
+                                                 {lineIndex < arr.length - 1 && <br />}
+                                             </span>
+                                          ))}
+                                     </React.Fragment>
+                                 ) : null // Skip parts without text content
+                             ))}
+                         </div>
                      ))
-                ))}
+                 }
                 <div ref={conversationEndRef} />
                 {isLoading && <div className="loading-indicator">AI is thinking...</div>}
             </div>

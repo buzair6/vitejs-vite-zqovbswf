@@ -1,7 +1,8 @@
 // src/pages/WorkOrdersPage.tsx
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react'; // Removed React as it's not needed explicitly
 import { Link } from 'react-router-dom';
-import { WorkOrder, WorkOrderStatus, WorkOrderPriority, Asset } from '../types';
+// Import all needed types for data processing and typing the component props
+import type { WorkOrder, WorkOrderStatus, WorkOrderPriority, Asset } from '../types';
 
 interface WorkOrdersPageProps {
     workOrders: WorkOrder[];
@@ -34,20 +35,23 @@ const getWeekRange = (offset: number = 0): { start: Date, end: Date } => {
 const getMonthRange = (offset: number = 0): { start: Date, end: Date } => {
     const today = new Date();
     const targetMonth = today.getMonth() + offset;
+    // Calculate target year correctly for month offsets > 12 or < 0
     const targetYear = today.getFullYear() + Math.floor(targetMonth / 12);
     const actualMonth = targetMonth % 12;
+    // Handle negative months (e.g., month -1 is December of the previous year)
+    const adjustedMonth = actualMonth < 0 ? actualMonth + 12 : actualMonth;
 
-    const startDate = new Date(targetYear, actualMonth, 1);
+    const startDate = new Date(targetYear, adjustedMonth, 1);
     startDate.setHours(0, 0, 0, 0); // Start of the 1st
 
-    const endDate = new Date(targetYear, actualMonth + 1, 0); // Last day of target month
+    const endDate = new Date(targetYear, adjustedMonth + 1, 0); // Last day of target month (Month + 1, day 0)
     endDate.setHours(23, 59, 59, 999); // End of the last day
     return { start: startDate, end: endDate };
 };
 
 
-// --- Styling Helper Functions (Same as before) ---
-const getStatusClassName = (status?: WorkOrderStatus): string => { /* ... same as before ... */
+// --- Styling Helper Functions ---
+const getStatusClassName = (status?: WorkOrderStatus): string => {
     const base = 'status-badge'; if (!status) return base;
     switch (status.toLowerCase().replace(/\s+/g, '-')) {
         case 'requested': case 'approved': case 'assigned': return `${base} status-requested`;
@@ -59,10 +63,10 @@ const getStatusClassName = (status?: WorkOrderStatus): string => { /* ... same a
         default: return base;
     }
 };
-const getPriorityClassName = (priority?: WorkOrderPriority): string => { /* ... same as before ... */
+const getPriorityClassName = (priority?: WorkOrderPriority): string => {
    return `priority-${priority?.toLowerCase() ?? 'medium'}`;
 };
-const getPriorityTagClassName = (priority?: WorkOrderPriority): string => { /* ... same as before ... */
+const getPriorityTagClassName = (priority?: WorkOrderPriority): string => {
     const base = 'priority-tag'; if (!priority) return `${base} medium`;
      switch (priority.toLowerCase()) {
         case 'critical': return `${base} critical`;
@@ -84,7 +88,11 @@ function WorkOrdersPage({ workOrders, assets }: WorkOrdersPageProps) {
   const assetMap = useMemo(() => {
     const map = new Map<string, Asset>();
     if (Array.isArray(assets)) {
-        assets.forEach(asset => map.set(asset.id, asset));
+        assets.forEach(asset => {
+            if (asset?.id) { // Ensure asset and asset.id are valid
+                 map.set(asset.id, asset);
+            }
+        });
     }
     return map;
   }, [assets]);
@@ -93,20 +101,31 @@ function WorkOrdersPage({ workOrders, assets }: WorkOrdersPageProps) {
   const filteredWorkOrders = useMemo(() => {
     let filtered = Array.isArray(workOrders) ? [...workOrders] : [];
 
-    // 1. Apply Text Search Filter (same as before)
+    // 1. Apply Text Search Filter
     if (searchTerm) {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(wo => { /* ... text search logic ... */
-            if (!wo) return false;
+        filtered = filtered.filter(wo => {
+            if (!wo) return false; // Skip null/undefined work orders
+
+            // Safely access potentially undefined properties
+            const woId = wo.id?.toLowerCase() ?? '';
+            const woTitle = wo.title?.toLowerCase() ?? '';
+            const woAssetId = wo.assetId?.toLowerCase() ?? '';
+            const woStatus = wo.status?.toLowerCase() ?? '';
+            const woAssignedTo = wo.assignedTo?.toLowerCase() ?? '';
+            const woProblemDescription = wo.problemDescription?.toLowerCase() ?? '';
+
             const asset = wo.assetId ? assetMap.get(wo.assetId) : undefined;
+            const assetName = asset?.name?.toLowerCase() ?? ''; // Safely access asset name
+
             return (
-                wo.title?.toLowerCase().includes(lowerCaseSearchTerm) ||
-                wo.id?.toLowerCase().includes(lowerCaseSearchTerm) ||
-                wo.assetId?.toLowerCase().includes(lowerCaseSearchTerm) ||
-                (asset?.name && asset.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                wo.status?.toLowerCase().includes(lowerCaseSearchTerm) ||
-                wo.assignedTo?.toLowerCase().includes(lowerCaseSearchTerm) ||
-                wo.problemDescription?.toLowerCase().includes(lowerCaseSearchTerm)
+                woTitle.includes(lowerCaseSearchTerm) ||
+                woId.includes(lowerCaseSearchTerm) ||
+                woAssetId.includes(lowerCaseSearchTerm) ||
+                assetName.includes(lowerCaseSearchTerm) ||
+                woStatus.includes(lowerCaseSearchTerm) ||
+                woAssignedTo.includes(lowerCaseSearchTerm) ||
+                woProblemDescription.includes(lowerCaseSearchTerm)
             );
         });
     }
@@ -118,22 +137,25 @@ function WorkOrdersPage({ workOrders, assets }: WorkOrdersPageProps) {
     if (filterStartDate || filterEndDate) {
         filtered = filtered.filter(wo => {
             if (!wo || !wo.dateDue) return false; // Must have a due date
-            try {
-                const dueDate = new Date(wo.dateDue);
-                // Add time part if only date is present to ensure correct comparison
-                if (wo.dateDue.length === 10) { // Check if it's just YYYY-MM-DD
-                    dueDate.setUTCHours(12,0,0,0); // Use UTC noon to avoid timezone shifts moving the date
-                }
 
-                if (isNaN(dueDate.getTime())) return false; // Invalid due date
+            try {
+                // Parse the dateDue string. If it's just YYYY-MM-DD, give it a time.
+                // Using UTC midnight for YYYY-MM-DD strings helps avoid timezone issues
+                // shifting the date backward.
+                const dueDate = new Date(wo.dateDue.length === 10 ? `${wo.dateDue}T00:00:00.000Z` : wo.dateDue);
+
+                if (isNaN(dueDate.getTime())) {
+                    console.warn("Invalid date format for WO due date:", wo.dateDue);
+                    return false; // Invalid due date string
+                }
 
                 const isAfterStart = filterStartDate ? dueDate >= filterStartDate : true; // True if no start date set
                 const isBeforeEnd = filterEndDate ? dueDate <= filterEndDate : true;   // True if no end date set
 
                 return isAfterStart && isBeforeEnd;
             } catch (e) {
-                console.error("Error parsing WO due date for filtering:", wo.dateDue, e);
-                return false;
+                console.error("Error parsing or comparing WO due date for filtering:", wo.dateDue, e);
+                return false; // Handle unexpected errors during date processing
             }
         });
     }
@@ -218,21 +240,21 @@ function WorkOrdersPage({ workOrders, assets }: WorkOrdersPageProps) {
              return (
                 <div className={`work-order-card ${getPriorityClassName(wo.priority)}`} key={wo.id}>
                   <div className="work-order-header">
-                    <h3>{wo.title ?? 'Untitled WO'}</h3>
-                    <span className={getStatusClassName(wo.status)}>{wo.status ?? 'Unknown'}</span>
+                    <h3>{wo.title ?? 'Untitled WO'}</h3> {/* Use nullish coalescing for defaults */}
+                    <span className={getStatusClassName(wo.status)}>{wo.status ?? 'Unknown'}</span> {/* Use nullish coalescing */}
                   </div>
                   <span className="work-order-id">
-                     Asset: {assetName} ({wo.assetId ?? 'N/A'}) | ID: {wo.id ?? 'N/A'}
+                     Asset: {assetName} ({wo.assetId ?? 'N/A'}) | ID: {wo.id ?? 'N/A'} {/* Use nullish coalescing */}
                   </span>
                   {wo.assignedTo && <span style={{fontSize: '0.9em', color: '#555', display: 'block', marginBottom: '5px'}}>Assigned: {wo.assignedTo}</span>}
                   <span style={{fontSize: '0.9em', color: '#777', display: 'block', marginBottom: '10px'}}>
                      Due: {wo.dateDue ? new Date(wo.dateDue).toLocaleDateString() : 'N/A'}
                    </span>
                   <p className="work-order-description">
-                    {(wo.problemDescription ?? 'No description.').length > 120 ? `${(wo.problemDescription ?? '').substring(0, 120)}...` : (wo.problemDescription ?? 'No description.')}
+                    {(wo.problemDescription ?? 'No description.').length > 120 ? `${(wo.problemDescription ?? '').substring(0, 120)}...` : (wo.problemDescription ?? 'No description.')} {/* Use nullish coalescing */}
                   </p>
                   <div className="work-order-footer">
-                    <span className={getPriorityTagClassName(wo.priority)}>{wo.priority ?? 'Medium'} Priority</span>
+                    <span className={getPriorityTagClassName(wo.priority)}>{wo.priority ?? 'Medium'} Priority</span> {/* Use nullish coalescing */}
                     <Link to={`/workorders/${wo.id}`} className="view-details">View Details</Link>
                   </div>
                 </div>

@@ -1,7 +1,6 @@
 // src/pages/ToolsListPage.tsx
-import React from 'react'; // Removed useState as we use prompt
-import { Link } from 'react-router-dom';
-import { Tool } from '../types';
+import { Link } from 'react-router-dom'; // Removed React as it's not needed explicitly
+import type { Tool } from '../types'; // Added type import keyword
 
 interface ToolsListPageProps {
     tools: Tool[];
@@ -13,10 +12,12 @@ function ToolsListPage({ tools, addTool }: ToolsListPageProps) {
     const handleAddNewTool = () => {
         const name = prompt("Enter name for the new tool:");
         if (name && name.trim()) {
+             // Using prompt for category and description
              const category = prompt("Enter category (optional):");
              const description = prompt("Enter description (optional):");
             addTool({
                 name: name.trim(),
+                // Use trim() and convert empty strings to undefined if needed by your type/logic
                 category: category?.trim() || undefined,
                 description: description?.trim() || undefined,
             });
@@ -41,13 +42,17 @@ function ToolsListPage({ tools, addTool }: ToolsListPageProps) {
                      <p className="no-data">No tools available. Add one above!</p>
                 ) : (
                     tools.map(tool => (
-                        <div className="tool-item" key={tool.id}>
-                             <h3>{tool.name ?? 'Unnamed Tool'}</h3>
-                             <p><strong>ID:</strong> {tool.id ?? 'N/A'}</p>
-                             {tool.category && <p><strong>Category:</strong> {tool.category}</p>}
-                             {tool.description && <p><strong>Description:</strong> {tool.description}</p>}
-                            <Link to={`/tools/book/${tool.id}`} className="button-link">Request Booking</Link>
-                        </div>
+                         // Added a check for valid tool and tool.id before rendering
+                        tool?.id ? (
+                            <div className="tool-item" key={tool.id}>
+                                 {/* Use nullish coalescing for potentially undefined properties */}
+                                 <h3>{tool.name ?? 'Unnamed Tool'}</h3>
+                                 <p><strong>ID:</strong> {tool.id}</p> {/* id is guaranteed by the check */}
+                                 {tool.category && <p><strong>Category:</strong> {tool.category}</p>}
+                                 {tool.description && <p><strong>Description:</strong> {tool.description}</p>}
+                                <Link to={`/tools/book/${tool.id}`} className="button-link">Request Booking</Link>
+                            </div>
+                         ) : null // Skip rendering if tool or tool.id is invalid
                     ))
                 )}
             </div>
