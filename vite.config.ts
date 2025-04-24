@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  // ... keep any other configurations you might have
-  base: "/vitejs-vite-zqovbswf/", // <--- Ensure the trailing slash is here
+  // ... other config
+  // Change base to the root:
+  base: "/", // <--- Make sure this is set to "/"
 });
