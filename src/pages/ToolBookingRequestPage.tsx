@@ -6,7 +6,7 @@ import type { Tool, ToolBooking } from '../types'; // Added type keyword
 interface ToolBookingRequestPageProps {
     tools: Tool[];
     currentBookings: ToolBooking[]; // <-- Add current bookings prop
-    requestToolBooking: (bookingData: Omit<ToolBooking, 'id' | 'status' | 'approvedBy'>) => ToolBooking | null; // Updated return type
+    requestToolBooking: (bookingData: Omit<ToolBooking, 'id' | 'status' | 'approvedBy'>) => Promise<ToolBooking | null>; // Updated return type
 }
 
 // --- Helper: Formats a Date object into 'YYYY-MM-DDTHH:mm' string for datetime-local input ---
@@ -60,7 +60,7 @@ function ToolBookingRequestPage({ tools, currentBookings, requestToolBooking }: 
     const [notes, setNotes] = useState('');
     const [isChecking, setIsChecking] = useState(false); // To prevent double submit
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (isChecking || !toolId || !requestedBy || !startTime || !endTime) {
             // Added basic alert if required fields are missing
@@ -129,7 +129,7 @@ function ToolBookingRequestPage({ tools, currentBookings, requestToolBooking }: 
         // --- End Overlap Check ---
 
         try {
-            const newBooking = requestToolBooking({
+            const newBooking = await requestToolBooking({
                 toolId,
                 requestedBy,
                 // Pass the input values directly, assuming they are valid datetime-local strings
@@ -141,11 +141,12 @@ function ToolBookingRequestPage({ tools, currentBookings, requestToolBooking }: 
             if (newBooking) { // Check if booking succeeded (didn't return null)
                  alert(`Booking requested for ${tool?.name || 'tool'}!`);
                  navigate('/tools/bookings'); // Navigate only on success
+            } else {
+                 alert("Failed to request booking. The request returned no booking information. Please try again.");
             }
-             // No else needed, as requestToolBooking handles the alert on failure now
         } catch (error) {
             console.error("Error requesting booking:", error);
-            alert("Failed to request booking. Please check console.");
+            alert("Failed to request booking due to an error. Please check console.");
         } finally {
              setIsChecking(false); // Re-enable button
         }

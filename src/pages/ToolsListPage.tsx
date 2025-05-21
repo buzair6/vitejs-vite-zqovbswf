@@ -5,21 +5,31 @@ import { Tool } from '../types';
 
 interface ToolsListPageProps {
     tools: Tool[];
-    addTool: (toolData: Omit<Tool, 'id'>) => Tool; // Add the function prop
+    addTool: (toolData: Omit<Tool, 'id'>) => Promise<Tool | null>; // Add the function prop
 }
 
 function ToolsListPage({ tools, addTool }: ToolsListPageProps) {
 
-    const handleAddNewTool = () => {
+    const handleAddNewTool = async () => {
         const name = prompt("Enter name for the new tool:");
         if (name && name.trim()) {
              const category = prompt("Enter category (optional):");
              const description = prompt("Enter description (optional):");
-            addTool({
+            const newTool = await addTool({
                 name: name.trim(),
                 category: category?.trim() || undefined,
                 description: description?.trim() || undefined,
             });
+            if (newTool) {
+                // Optionally, handle the newly added tool, e.g., show a success message
+                // or update local state if the parent component doesn't automatically re-render.
+                // For now, we'll just log it or do nothing specific as the main list
+                // is expected to be updated by the parent.
+                console.log("Tool added successfully:", newTool);
+            } else {
+                // Handle the case where the tool was not added (e.g. validation failed server-side)
+                alert("Failed to add the tool. Please try again or check the details.");
+            }
         } else if (name !== null) { // Only alert if they didn't press Cancel
              alert("Tool name cannot be empty.");
         }
