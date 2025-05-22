@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path'); // Added
 const sqlite3 = require('sqlite3').verbose(); // Added sqlite3
+const bcrypt = require('bcrypt'); // Added for password hashing
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -159,6 +160,48 @@ const db = new sqlite3.Database(dbPath, (err) => {
           });
         }
       });
+
+      // Users Table (Added for signup/login)
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL
+      )`, (err) => {
+        if (err) {
+          console.error('Error creating users table', err.message);
+        } else {
+          console.log('Users table checked/created.');
+          // Seed initial user if table is newly created or empty
+          const username = 'testuser';
+          const password = 'password123';
+          const saltRounds = 10;
+          
+          // Check if user already exists before attempting to insert
+          db.get("SELECT username FROM users WHERE username = ?", [username], (getErr, row) => {
+            if (getErr) {
+              console.error('Error checking for existing testuser:', getErr.message);
+            } else if (!row) {
+              // User does not exist, proceed with insertion
+              try {
+                const password_hash = bcrypt.hashSync(password, saltRounds);
+                const stmt = db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+                stmt.run(username, password_hash, (runErr) => {
+                  if (runErr) {
+                    console.error('Error inserting testuser:', runErr.message);
+                  } else {
+                    console.log('Testuser seeded.');
+                  }
+                });
+                stmt.finalize();
+              } catch (hashErr) {
+                console.error('Error hashing password for testuser:', hashErr);
+              }
+            } else {
+              // console.log('Testuser already exists.'); // Optional: log if user already present
+            }
+          });
+        }
+      });
     }); // End of db.serialize
   }
 });
@@ -181,6 +224,47 @@ app.get('/api/assets', (req, res) => {
       return;
     }
     res.json(rows);
+  });
+});
+
+// Signup endpoint
+app.post('/api/signup', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Username and password are required.' });
+  }
+
+  // Check if username already exists
+  db.get("SELECT username FROM users WHERE username = ?", [username], async (err, row) => {
+    if (err) {
+      console.error('Error checking for existing user:', err.message);
+      return res.status(500).json({ success: false, message: 'Error checking user existence.' });
+    }
+    if (row) {
+      return res.status(409).json({ success: false, message: 'Username already exists.' });
+    }
+
+    // Username does not exist, proceed with signup
+    try {
+      const saltRounds = 10;
+      const password_hash = await bcrypt.hash(password, saltRounds);
+
+      // Assume 'users' table exists with 'username' and 'password_hash' columns
+      // The actual table creation will be handled in a subsequent step.
+      const stmt = db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+      stmt.run(username, password_hash, function(err) {
+        if (err) {
+          console.error('Error inserting new user:', err.message);
+          return res.status(500).json({ success: false, message: 'Failed to create user.' });
+        }
+        res.status(201).json({ success: true, message: 'User created successfully.', userId: this.lastID });
+      });
+      stmt.finalize();
+    } catch (error) {
+      console.error('Error hashing password or creating user:', error);
+      res.status(500).json({ success: false, message: 'Server error during signup.' });
+    }
   });
 });
 
@@ -429,15 +513,26 @@ app.put('/api/toolbookings/:id/status', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
-  // Hardcoded credentials (for now)
-  const validUsername = "Uzair Bhatti";
-  const validPassword = "Pakistan";
+  // For login, you would now query the 'users' table and use bcrypt.compare()
+  // For example:
+  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: "Server error during login." });
+    }
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid credentials." });
+    }
 
-  if (username === validUsername && password === validPassword) {
-    res.json({ success: true, message: "Login successful" });
-  } else {
-    res.status(401).json({ success: false, message: "Invalid credentials" });
-  }
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (match) {
+      // Passwords match
+      // Here you would typically generate a token (JWT) and send it back
+      res.json({ success: true, message: "Login successful", userId: user.id /* or username */ });
+    } else {
+      // Passwords don't match
+      res.status(401).json({ success: false, message: "Invalid credentials." });
+    }
+  });
 });
 
 // The "catchall" handler: for any request that doesn't
