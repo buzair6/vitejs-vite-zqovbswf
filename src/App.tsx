@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation } fro
 // Page Imports
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage'; // Added LoginPage import
+import SignUpPage from './pages/SignUpPage'; // Added SignUpPage import
 import AssetsPage from './pages/AssetsPage';
 import AssetDetailPage from './pages/AssetDetailPage';
 import AssetForm from './pages/AssetForm';
@@ -454,6 +455,10 @@ function App() {
     return (
       <Router>
         <Routes>
+          {/* If not authenticated, show login page for any path */}
+          <Route path="/login" element={<LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />} />
+          <Route path="/signup" element={<SignUpPage onSignUpSuccess={() => console.log('Sign up success from App.tsx')} />} />
+          {/* Redirect any other unauthenticated access to login */}
           <Route path="*" element={<LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />} />
         </Routes>
       </Router>
@@ -464,6 +469,7 @@ function App() {
     <Router>
       {/* Optional: Add a logout button to the Layout or Navbar */}
       <Routes>
+        {/* Routes accessible when authenticated */}
         <Route path="/" element={<Layout />}> {/* Layout could include a logout button passing setIsAuthenticated(false) */}
             <Route index element={<HomePage />} />
             <Route path="dashboard" element={ <DashboardPage assets={assets} workOrders={workOrders} toolBookings={toolBookings} /> } />
@@ -488,6 +494,10 @@ function App() {
                 <Route path=":groupId" element={ <GroupChatPage groups={chatGroups} messages={chatMessages} sendMessage={sendMessage} />} />
             </Route>
              <Route path="ai-interaction" element={ <AIInteractionPage assets={assets} workOrders={workOrders} tools={tools} toolBookings={toolBookings} /> } />
+            {/* LoginPage and SignUpPage routes are now primarily handled by the unauthenticated section,
+                but having them here allows direct navigation if already authenticated (though less common) */}
+            <Route path="login" element={<LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />} />
+            <Route path="signup" element={<SignUpPage onSignUpSuccess={() => console.log('Sign up success from App.tsx')} />} />
             <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

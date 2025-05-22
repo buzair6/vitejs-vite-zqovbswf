@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom'; // Import Link
+import './Auth.css'; // Import Auth.css
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -42,37 +44,44 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '15px' }}>
-          <label htmlFor="username">Username:</label>
-          <input
-            type="text"
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
+    <div className="auth-container">
+      <div className="auth-form-container">
+        <h2>Login</h2>
+        <form onSubmit={handleSubmit} className="auth-form">
+          {error && <p className="auth-error">{error}</p>}
+          {message && <p className="auth-message">{message}</p>}
+          <div className="auth-form-group">
+            <label htmlFor="username" className="auth-label">Username:</label>
+            <input
+              type="text"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="auth-input"
+            />
+          </div>
+          <div className="auth-form-group">
+            <label htmlFor="password" className="auth-label">Password:</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="auth-input"
+            />
+          </div>
+          <button type="submit" className="auth-button">
+            Login
+          </button>
+        </form>
+        <div className="auth-link-container">
+          <p>
+            Don't have an account? <Link to="/signup">Sign Up</Link>
+          </p>
         </div>
-        <div style={{ marginBottom: '15px' }}>
-          <label htmlFor="password">Password:</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        {message && <p style={{ color: 'green' }}>{message}</p>}
-        <button type="submit" style={{ padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>
-          Login
-        </button>
-      </form>
+      </div>
     </div>
   );
 };

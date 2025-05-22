@@ -1,0 +1,150 @@
+/* src/pages/Auth.css */
+
+/* Container for the authentication pages (Login, Sign Up) */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh; /* Adjust as needed, considering navbar height */
+  padding: 20px;
+  background-color: var(--background-color); /* Using variable from index.css */
+}
+
+/* Form wrapper within the auth page */
+.auth-form-container {
+  background-color: var(--container-background); /* Using variable from index.css */
+  padding: 20px;
+  border-radius: var(--border-radius-large); /* Using variable from index.css */
+  box-shadow: var(--box-shadow-standard); /* Using variable from index.css */
+  width: 100%;
+  max-width: 400px; /* Max width for the form */
+  margin: 20px 0;
+}
+
+.auth-form-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: var(--text-color-headings); /* Using variable from index.css */
+}
+
+/* General form styling */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* Space between form elements */
+}
+
+.auth-form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0; /* Replaced by gap in .auth-form */
+}
+
+.auth-label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: var(--text-color-secondary); /* Using variable from index.css */
+}
+
+.auth-input {
+  padding: 10px;
+  font-size: 16px;
+  border-radius: var(--border-radius-small); /* Using variable from index.css */
+  border: 1px solid var(--border-color); /* Using variable from index.css */
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.auth-input:focus {
+  border-color: var(--primary-color); /* Using variable from index.css */
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color-light); /* Using variable from index.css */
+}
+
+.auth-button {
+  padding: 10px 15px;
+  font-size: 16px;
+  border-radius: var(--border-radius-medium); /* Using variable from index.css */
+  border: none;
+  background-color: var(--primary-color); /* Using variable from index.css */
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.auth-button:hover {
+  background-color: var(--primary-color-dark); /* Using variable from index.css */
+}
+
+/* Error and Message styling */
+.auth-error {
+  color: var(--error-color); /* Using variable from index.css */
+  background-color: var(--error-background-color);
+  padding: 10px;
+  border-radius: var(--border-radius-small);
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.auth-message {
+  color: var(--success-color); /* Using variable from index.css */
+  background-color: var(--success-background-color);
+  padding: 10px;
+  border-radius: var(--border-radius-small);
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* Link container for "Don't have an account?" or "Already have an account?" */
+.auth-link-container {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.auth-link-container p {
+  margin: 0;
+  color: var(--text-color-secondary);
+}
+
+.auth-link-container a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.auth-link-container a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .auth-form-container {
+    margin: 20px 10px; /* Slightly reduce margin for smaller screens */
+    padding: 15px;
+  }
+
+  .auth-button {
+    padding: 12px; /* Make button easier to tap */
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-container {
+    min-height: 70vh; /* Adjust for smaller screens */
+  }
+  .auth-form-container {
+    /* Max width is already 400px, so it will shrink naturally.
+       Ensure it doesn't get *too* small if padding is large. */
+    padding: 15px;
+    box-shadow: none; /* Optional: remove shadow on very small screens for cleaner look */
+    border: 1px solid var(--border-color); /* Or keep shadow, depends on preference */
+  }
+
+  .auth-form-container h2 {
+    font-size: 1.5em; /* Adjust heading size */
+  }
+
+  .auth-input, .auth-button {
+    font-size: 15px; /* Slightly smaller font for inputs/buttons */
+  }
+}
